@@ -1,5 +1,6 @@
 ---
 title: "Untitled"
+author: Brooke, Milo, Shane, Tammy
 format: html
 embed-resources: true
 editor: visual
