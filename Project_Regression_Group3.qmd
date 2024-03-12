@@ -1,0 +1,181 @@
+---
+title: "Project_Proposal_Group3"
+author: "Milo Klein, Shane Egerstrom, Tammy Lee, Brooke Comstock"
+format: 
+  html:
+    embed-resources: true
+    code-tools: true
+    toc: true
+editor: source
+execute: 
+  error: true
+  echo: true
+  message: false
+  warning: false
+---
+
+## Hypothesized relationship (and any outside references):
+
+We predict that there will be generally a positive correlation between GDP growth and CO2 emissions.
+
+## Detailed data and variable description:
+
+-   CO2 data: The CO2 emissions data was taken from the Global Carbon Project, CDAIC and other sources. It documents the change in CO2 emissions produced by each country from 1800-2022. (https://docs.google.com/spreadsheets/d/1t_GOXGrXQgSasIB7dWfRrq9dkqjrqwy3xHvywH7ah1A/edit#gid=501532268)
+
+    -   Originally had 195 rows (Countries) and 302 columns(1800:2100)
+    -   After pivot: 58,695 rows (GDP observations) and 3 columns (country, year, GDP)
+
+-   GDP data: This data was taken from multiple sources, depending on the date range. From 1990 to 2019, data from the World Bank was primarily used, while from before 1990 was taken from Maddison Project Database and Penn World Table of the Groningen Growth and Development Centre. In summary, this data documents the change in GDP for most countries\
+    between years 1800 and 2100. (https://www.gapminder.org/data/geo/changes/)
+
+    -   Originally had 194 rows (Countries) and 224 columns (1800:2022)
+    -   After pivot: 43,262 rows (CO2 observations) and 3 columns (country, year, CO2)
+
+## Data cleaning process and decisions:
+
+After importing both data sets, we cleaned each by making sure all years were numeric and ready to merge. GDP values represented by characters such as “10k” were changed to numeric values.
+
+We also eliminated an “X” character from each of the years in the Emissions data set that prevented merging.
+
+We then pivoted both and conducted a full merge by “Year” and “Country”.
+
+Also began filtering by years of interest. Future projections (years past 2021) were not considered in our data.
+
+```{r, loading}
+library(tidyverse)
+GDP <- read_csv("gdp_pcap.csv")
+Emissions <- read_csv("co2_pcap_cons.csv")
+```
+
+```{r, CO2 clean}
+Emissions_clean <- Emissions |>
+  rename_with(~gsub("^X", "", .), everything()) |>
+  mutate_at(vars(`1800`:`2022`), as.numeric)
+
+Emissions_longer <- pivot_longer(Emissions_clean, cols = `1800`:`2022`, 
+                                  names_to = "Year", values_to = "CO2")
+
+# Checking to see if CO2 data makes sense... one would expect China to be highest... but this is per person!
+
+# Emissions_China = Emissions_longer |>
+#   filter(country == "China")
+# 
+# Emissions_USA = Emissions_longer |>
+#   filter(country == "USA")
+```
+
+```{r, GDP clean}
+country_names <- GDP[1]
+
+clean_gdp_value <- function(df) {
+  df |>
+    mutate(across(everything(), 
+                  ~case_when(is.character(.) & str_detect(., "k") ~ as.numeric(str_replace(., "k", "")) * 1000,
+                            TRUE ~ as.numeric(.))))
+}
+
+GDP_clean <- clean_gdp_value(GDP)
+GDP_clean[1] <- country_names
+
+GDP_longer <- pivot_longer(GDP_clean, cols = `1800`:`2100`,
+                            names_to ="Year", values_to = "GDP")
+
+```
+
+```{r, merge}
+merged_data <- full_join(GDP_longer, 
+                         Emissions_longer, 
+                         by = c("Year", "country"))
+```
+
+**Regression Model:**
+
+```{r, Visual_1}
+#1: Visual exploring the relationship between the two quantitative variables changing over time
+
+# Focus on the top 10 countries who have emitted the most CO2 within the last 10 years
+
+# Convert 'Year' to numeric
+merged_data$Year <- as.numeric(merged_data$Year)
+
+# Check column names and data types
+str(merged_data)
+
+# Filter data for the last 10 years
+recent_data <- merged_data %>%
+  filter(Year %in% 1800:2020) %>%
+  filter(Year >= max(Year) - 9)
+
+# Calculate total CO2 emissions for each country over the last 10 years
+total_emissions <- recent_data %>%
+  group_by(country) %>%
+  summarise(total_CO2_emissions = sum(CO2, na.rm = TRUE))
+
+# Select the top 10 countries
+top_countries <- total_emissions %>%
+  top_n(10, wt = total_CO2_emissions)
+
+# Filter the original data for the selected countries
+filtered_data <- merged_data %>%
+  filter(country %in% top_countries$country)
+
+# Create a line plot for the selected countries
+filtered_data %>%
+  ggplot(aes(x = Year, y = GDP, color = country)) +
+  geom_line(aes(y = CO2)) +
+  labs(title = "Trends of GDP and CO2 Emissions for Top 10 Countries",
+       x = "Year",
+       y = "CO2 Emissions [tons per person]") +
+  theme_minimal() +
+  xlim(1800, 2020)
+
+```
+
+```{r, Visual_2}
+#2: Visual exploring the relationship between the two quantitative variables you are investigating
+
+# Group by country and calculate average GDP and CO2 emissions
+average_data <- filtered_data %>%
+  group_by(country) %>%
+  summarise(avg_GDP = mean(GDP, na.rm = TRUE),
+            avg_CO2_emissions = mean(CO2, 
+                                     na.rm = TRUE)
+            )
+
+# Create a scatter plot
+average_data %>%
+  ggplot(aes(x = avg_GDP, 
+             y = avg_CO2_emissions, 
+             label = country)
+         ) +
+  geom_point(color = "red") +
+  geom_smooth(method = "lm", 
+              se = FALSE, 
+              color = "blue", 
+              linetype = "dashed") +  # Add linear regression line
+  geom_text(nudge_x = 0.1, 
+            nudge_y = 0.1, 
+            check_overlap = TRUE) +
+  labs(title = "Average Relationship Between GDP and CO2 Emissions",
+       x = "Average GDP",
+       y = "Average CO2 Emissions [tons per person]") +
+  theme_minimal()
+```
+
+```{r, Regression_Data_V2}
+# Regression Data for Visual #2:
+
+# Fit a simple linear regression model
+regression_model <- lm(avg_CO2_emissions ~ avg_GDP, data = average_data)
+
+# Display the summary of the regression model
+summary(regression_model)
+```
+
+**Regression Interpretation (NOTE: INCOMPLETE, FILL IN X, Y, Z WITH APPROPRIATE VARIABLE NAMES):**
+
+-   The estimated slope coefficient for **`avg_GDP`** is X, indicating that, on average, a one-unit increase in average GDP is associated with a Y-unit increase/decrease in average CO2 emissions.
+
+-   The R-squared value of Z suggests that Z% of the variability in average CO2 emissions is explained by the model.
+
+-   The p-value for the **`avg_GDP`** coefficient is less than 0.05, indicating that average GDP is a statistically significant predictor of average CO2 emissions.
