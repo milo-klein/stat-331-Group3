@@ -94,9 +94,9 @@ merged_data <- full_join(GDP_longer,
 
 **GDP, CO2 Emissions, and Decades Visualizations:**
 
-There are multiple ways to model the correlation relationship between GDP and CO2. However, a great factor in the increase of CO2 emissions is the onslaught of the Industrial Revolution, with some countries starting as early as the 19th century.
+There are multiple ways to model the relationship between GDP and CO2. However, a great factor in the increase of CO2 emissions is the onslaught of the Industrial Revolution, with some countries starting as early as the 19th century.
 
-We sought to evaluate the changing relationship between average country GDP per capita and CO2 emissions per capita by fitting our obsercations with a linear regression model: both for overall averages in the dataset and for incremental averages from each decade, starting from 1930, from when a majority of the world has already industrialized, to 2010, the present day.
+We sought to evaluate the changing relationship between average country GDP per capita and CO2 emissions per capita by fitting our observations with a linear regression model: both for overall averages in the dataset and for incremental averages from each decade, starting from 1930, from when a majority of the world has already industrialized, to 2010, the present day.
 
 A linear regression model looks at one explanatory/independent variable and see how it affects the values of one response/dependent variable. A "linear" regression specifically implies that changes in the explanatory will cause changes to the dependent variable at a fixed function increment, creating "line." Some linear regression models may also account for the data "noise" to account for random variation or error between the independent and dependent variables, while others may be fitted, where the function would have to estimate values.
 
