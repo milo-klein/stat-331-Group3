@@ -118,17 +118,6 @@ str(merged_data)
 recent_data <- merged_data %>%
   filter(Year %in% 1800:2020) 
 
-# NOTE: DELETE THIS WHEN DONE FIXING CODE BELOW:
-# Calculate total CO2 emissions for each country for all time
-total_emissions <- recent_data %>%
-  group_by(country) %>%
-  summarise(total_CO2_emissions = sum(CO2, na.rm = TRUE))
-
-# NOTE: DELETE THIS WHEN DONE FIXING CODE BELOW:
-# Select the top 10 countries
-top_countries <- total_emissions %>%
-  top_n(10, wt = total_CO2_emissions)
-
 # Filter the original data for ALL countries
 filtered_data <- merged_data %>%
   filter(country %in% recent_data$country)
