@@ -92,12 +92,11 @@ merged_data <- full_join(GDP_longer,
 
 Note: for first visual, facet by decade
 
-```{r, Visual_1}
-#|fig-height:20
-#|fig-width:9
+```{r fig.height=40, fig.width=5}
+
 
 # Set figure height and width
-options(repr.plot.height = 20, repr.plot.width = 9)
+#options(repr.plot.height = 20, repr.plot.width = 9)
 
 #1: Visual exploring the relationship between the two quantitative variables changing over time
 
@@ -126,23 +125,17 @@ top_countries <- total_emissions %>%
 filtered_data <- merged_data %>%
   filter(country %in% recent_data$country)
 
-# Create a line plot for the selected countries
-# filtered_data %>%
-#   ggplot(aes(x = Year, y = GDP, color = country)) +
-#   geom_line() +
-#   labs(title = "Trends of GDP and CO2 Emissions for Top 10 Countries",
-#        x = "Year",
-#        y = "CO2 Emissions [tons per person]") +
-#   xlim(1800, 2020)
-
 # Create a new variable for decade
 filtered_data_decade <- filtered_data %>%
   mutate(decade = 10 * (Year %/% 10)) %>%
-  filter(decade == 1930:2020)
+  filter(decade %in% 1930:2020) %>%
+  group_by(country, decade)%>%
+  summarize(GDPavg=mean(GDP), CO2avg=mean(CO2))
+
 
 # Create a line plot for the selected countries faceted by decade
 filtered_data_decade %>%
-  ggplot(aes(x = GDP, y = CO2)) +
+  ggplot(aes(x = GDPavg, y = CO2avg)) +
   geom_point() +
   geom_smooth(method = "lm", se = FALSE) +
   facet_wrap(~ decade, scales = "free_y", ncol = 1) +  # Stacking each facet
