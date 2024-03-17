@@ -15,11 +15,11 @@ execute:
 code-fold: true
 ---
 
-## Hypothesized relationship 
+## Hypothesized relationship (I THINK WE NEED TO ELABORATE ON THIS)
 
 We predict that there will be generally a positive correlation between GDP growth and CO2 emissions.
 
-## Methods 
+## Methods
 
 -   CO2 data: The CO2 emissions data was taken from the Global Carbon Project, CDAIC and other sources. It documents the change in CO2 emissions produced by each country from 1800-2022. (https://docs.google.com/spreadsheets/d/1t_GOXGrXQgSasIB7dWfRrq9dkqjrqwy3xHvywH7ah1A/edit#gid=501532268)
 
@@ -45,6 +45,7 @@ Also began filtering by years of interest. Future projections (years past 2021) 
 ```{r, loading}
 library(tidyverse)
 library(broom)
+library(kableExtra)
 GDP <- read_csv("gdp_pcap.csv")
 Emissions <- read_csv("co2_pcap_cons.csv")
 ```
@@ -84,7 +85,7 @@ merged_data <- full_join(GDP_clean,
 
 There are multiple ways to model the relationship between GDP and CO2. However, a great factor in the increase of CO2 emissions is the beginning of the Industrial Revolution, with some countries starting as early as the 19th century.
 
-We sought to evaluate the changing relationship between average country GDP per capita and CO2 emissions per capita by fitting our observations with a linear regression model: both for overall averages in the dataset and for incremental averages from each decade, starting from 1930, from when a majority of the world has already industrialized, to 2010, the present day. 
+We sought to evaluate the changing relationship between average country GDP per capita and CO2 emissions per capita by fitting our observations with a linear regression model: both for overall averages in the dataset and for incremental averages from each decade, starting from 1930, from when a majority of the world has already industrialized, to 2010, the present day.
 
 A linear regression model looks at one explanatory/independent variable and see how it affects the values of one response/dependent variable. A "linear" regression specifically implies that changes in the explanatory will cause changes to the dependent variable at a fixed function increment, creating "line." Some linear regression models may also account for the data "noise" to account for random variation or error between the independent and dependent variables, while others may be fitted, where the function would have to estimate values.
 
@@ -117,7 +118,6 @@ filtered_data_decade %>%
        subtitle = "CO2 Emissions [tons per person]")
 
 ```
-
 
 ```{r, Visual_2}
 #2: Visual exploring the relationship between the two quantitative variables you are investigating
@@ -154,8 +154,6 @@ average_data %>%
 
 Both evaluations visualizations exhibit a positive relationship between average GDP and average CO2 emissions. From the first visualization, there are clear differences in the "slopes" of the models in the between each decade.
 
-
-for a 1000 dollar increase in avfgdp, on average, we expect a there would be (1.669)  tons of Co2/capita
 **Regression Interpretation:**
 
 ```{r, Regression_Data_V2}
@@ -166,19 +164,30 @@ regression_model <- lm(avg_CO2_emissions ~ avg_GDP, data = average_data)
 
 # Display the summary of the regression model
 summary(regression_model)
-broom::tidy(regression_model)
-
+  
+broom::tidy(regression_model) |>
+  kbl() |>
+  kable_styling(bootstrap_options = c("striped", "hover"))
+  
 ```
 
-The estimated regression model between average GDP per capita and average CO2 emissions per capita is:
+A general fitted linear regression model, estimating deviations from noise, may be represented as:
 
-<center>y\^ = -0.624 + (1.669 \* 10\^(-4))x</center>
+$$  
+\Large 
+ \hat{y} = \beta_0 + \beta_1 x
+$$
 
-\n
+where $\hat{y}$ is the response variable, $\beta_0$ is the y-intercept of the linear model, $\beta_1$ is the slope of the linear model, and x is the explanatory variable.
 
--   The estimated slope coefficient for **`avg_GDP`** is \[1.669 \* 10\^(-4)\], indicating that, on average, a one-unit increase in average GDP is associated with a Y-unit increase/decrease in average CO2 emissions.
+From the results from the coefficient table, the estimated regression model between average GDP per capita and average CO2 emissions per capita can be represented as:
 
--   The p-value for the **`avg_GDP`** coefficient is less than 0.05, indicating that average GDP is a statistically significant predictor of average CO2 emissions.
+$$  
+\Large 
+ \hat{y} = -0.2863 +  0.0003x
+$$ The estimated slope coefficient for average GDP is 0.0003, indicating that, on average, a one-unit increase in average GDP is associated with a y-unit increase/decrease in average CO2 emissions.
+
+The p-value for the average GDP coefficient is less than 0.05, indicating that average GDP is a statistically significant predictor of average CO2 emissions.
 
 We can assess how “good” a regression model is by looking for how much of the variability in the response values were accounted for in the regression model, specifically looking at the regression model's fitted values. Meanwhile, the variance in the residual values represent the amount of variability not accounted for in the model.
 
@@ -188,14 +197,15 @@ variance_table <- data.frame(
   Variance = c(var(regression_model$model$avg_CO2_emissions), var(regression_model$fitted.values),
                var(regression_model$residuals)))
   
-variance_table
+variance_table |>
+  kbl() |>
+  kable_styling(bootstrap_options = c("striped", "hover"))
 ```
 
-The variance of the fitted values accounts for nearly 70.1% of variance response values while the residual variance accounts for 29.8%. This signifies that that the linear regression model is a good fit for our observations, explaining that 70.1% of variability in average CO2 emissions is explained by the model (matching with the outputted R-squared value of 0.70).
+The variance of the fitted values accounts for nearly 76.5% of variance response values while the residual variance accounts for 23.4%. This signifies that that the linear regression model is a good fit for our observations, explaining that 76.5% of variability in average CO2 emissions is explained by the model (matching with the outputted R-squared value of 0.76).
 
+# Part 3: Simulation
 
-
-# Part 3: Simulation 
 ```{r, Section_3-1}
 
 noise<-function(x, sd){
@@ -232,7 +242,8 @@ pred_obs_df |>
   
 
 ```
-# 1000 Simulations 
+
+# 1000 Simulations
 
 ```{r, Section_3-2}
 sims <- map_dfc(0:1000, #if you want to practice run, don't use 1000.................. :(
@@ -249,6 +260,7 @@ thousand_sims <- average_data |>  #combines the 1000 simulations with the origin
   bind_cols(sims)
 
 ```
+
 ```{r}
 # Plot of R^2 
 thousand_r2s <- thousand_sims |> # runs the lm() method 1000 times and extracts the R2 values into new... matrix???
@@ -269,5 +281,3 @@ tibble(sims = thousand_r2s) |> #plot R2 value histogram
   scale_x_continuous(breaks = seq(0.35, 0.75, 0.025))
 
 ```
-
-
