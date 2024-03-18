@@ -1,0 +1,329 @@
+---
+title: "Linear Regression: Group 3"
+author: "Milo Klein, Shane Egerstrom, Tammy Lee, Brooke Comstock"
+format: 
+  html:
+    embed-resources: true
+    code-tools: true
+    toc: true
+    code-fold: true
+editor: source
+execute: 
+  error: true
+  echo: true
+  message: false
+  warning: false
+code-fold: true
+---
+
+# Introduction
+
+## Hypothesized relationship
+
+For the relationship between per-capita GDP growth and per-capita CO2 emissions, we predict that there will be generally a positive correlation between the two variables. It should be pointed out that we are using CO2 emissions as the response variable and GDP as the explanatory variable.
+
+## Methods
+
+### The Data
+
+The CO2 emissions data was taken from the Global Carbon Project, CDAIC and other sources. It documents the change in CO2 emissions produced by each country from 1800-2022. (https://docs.google.com/spreadsheets/d/1t_GOXGrXQgSasIB7dWfRrq9dkqjrqwy3xHvywH7ah1A/edit#gid=501532268). Originally, our CO2 emission data had 194 rows (Countries) and 224 columns (1800:2022). After pivoting longer, there were 43,262 rows (CO2 observations) and 3 columns (country, year, CO2).
+
+For the GDP data, this was taken from multiple sources depending on the date range. From 1990 to 2019, data from the World Bank was primarily used, while from before 1990 was taken from Maddison Project Database and Penn World Table of the Groningen Growth and Development Centre. In summary, this data documents the change in GDP for most countries between years 1800 and 2100 (https://www.gapminder.org/data/geo/changes/). Furthermore, the data originally had 195 rows (Countries) and 302 columns (individual years, 1800:2100). After pivot: 58,695 rows (GDP observations) and 3 columns (country, year, GDP).
+
+### **Data Cleaning Process and Cecisions**
+
+After importing both data sets, we cleaned each by making sure all years were numeric and ready to merge. GDP values represented by characters such as “10k” were changed to numeric values. We also eliminated an “X” character from each of the years in the Emissions data set that prevented merging. Then, we pivoted both and conducted a full merge by “Year” and “Country”. Finally, we began filtering by years of interest. Future projections (years past 2021) were not considered in our data.
+
+```{r, loading}
+library(gapminder)
+library(gganimate)
+library(tidyverse)
+library(patchwork)
+library(broom)
+library(kableExtra)
+
+GDP <- read_csv("gdp_pcap.csv")
+Emissions <- read_csv("co2_pcap_cons.csv")
+```
+
+```{r, CO2 clean}
+Emissions_clean <- Emissions |>
+  select(`country`:`2022`)|>
+  mutate(across(everything(), ~ str_replace(., "−", "-")))|> 
+  filter(across(everything(), ~is.na(.) == 0)) |>
+  mutate_at(vars(`1800`:`2022`), as.numeric)|>
+  pivot_longer(cols = `1800`:`2022`, 
+               names_to = "Year",
+               values_to = "CO2")
+
+```
+
+```{r, GDP clean}
+GDP_clean <- GDP |>
+  select(`country`:`2022`)|>
+  mutate(across(`1800`:`2022`, 
+                  ~case_when(is.character(.) & str_detect(., "k") ~ as.numeric(str_replace(., "k", "")) * 1000,
+                             TRUE ~ as.numeric(.)))) |>
+  pivot_longer(cols = `1800`:`2022`,
+               names_to ="Year", values_to = "GDP")
+```
+
+```{r, merge}
+merged_data <- full_join(GDP_clean, 
+                         Emissions_clean, 
+                         by = c("country", "Year")) |>
+               mutate(Year = as.numeric(Year))
+```
+
+## Results
+
+**GDP, CO2 Emissions, and Decades Visualizations**
+
+There are multiple ways to model the relationship between GDP and CO2. However, a great factor in the increase of CO2 emissions is the beginning of the Industrial Revolution, with some countries starting as early as the 19th century.
+
+We sought to evaluate the changing relationship between average country GDP per capita and CO2 emissions per capita by fitting our observations with a linear regression model: both for overall averages in the dataset and for incremental averages from each decade, starting from 1930, from when a majority of the world has already industrialized, to 2010, the present day.
+
+A linear regression model looks at one explanatory/independent variable and see how it affects the values of one response/dependent variable. A "linear" regression specifically implies that changes in the explanatory will cause changes to the dependent variable at a fixed function increment, creating "line." Some linear regression models may also account for the data "noise" to account for random variation or error between the independent and dependent variables, while others may be fitted, where the function would have to estimate values.
+
+```{r fig.height=40, fig.width=5}
+
+#1: Visual exploring the relationship between the two quantitative variables changing over time
+   
+# Create a new variable for decade
+filtered_data_decade <- merged_data |>
+  mutate(decade = (10*(Year %/% 10))) |>
+  filter(decade %in% 1800:2019) |>
+  group_by(country, decade)|>
+  summarize(GDPavg=mean(GDP), CO2avg=mean(CO2))
+
+# Create a line plot for the selected countries faceted by decade
+filtered_data_decade %>%
+  ggplot(aes(x = GDPavg, y = CO2avg)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(~ decade, scales = "free_y", ncol = 1) +  # Stacking each facet
+  labs(title = "Trends of GDP per capita and CO2 Emissions per capita",
+       x = "GDP (US $)",
+       y = "",
+       subtitle = "CO2 Emissions [tons per person]")
+```
+
+```{r, Visual_2}
+#2: Visual exploring the relationship between the two quantitative variables you are investigating
+
+# Group by country and calculate average GDP and CO2 emissions
+average_data <- merged_data |>
+  group_by(country) |>
+  summarise(avg_GDP = mean(GDP, na.rm = TRUE),
+            avg_CO2_emissions = mean(CO2, 
+                                     na.rm = TRUE)
+            )|>
+  filter(across(everything(), ~is.na(.) == 0))
+
+# Create a scatter plot:
+side_by_side_1 = average_data %>%
+  ggplot(aes(x = avg_GDP,
+             y = avg_CO2_emissions,
+             label = country)
+         ) +
+  geom_point(color = "red") +
+  geom_smooth(method = "lm",
+              se = FALSE,
+              color = "blue",
+              linetype = "dashed") +  # Add linear regression line
+  geom_text(nudge_x = 0.1,
+            nudge_y = 0.1,
+            check_overlap = TRUE) +
+  labs(title = "Data",
+       subtitle = "Average Relationship Between GDP and CO2 Emissions per capita",
+       x = "Average GDP per capita (US $)",
+       y = "Average CO2 Emissions [tons per person]")
+```
+
+Both evaluations visualizations exhibit a positive relationship between average GDP and average CO2 emissions. From the first visualization, there are clear differences in the "slopes" of the models in the between each decade.
+
+**Regression Interpretation:**
+
+```{r, Regression_Data_V2}
+# Regression Data for Visual #2:
+
+# Fit a simple linear regression model
+regression_model <- lm(avg_CO2_emissions ~ avg_GDP, data = average_data)
+
+# Display the summary of the regression model
+#summary(regression_model)
+broom::tidy(regression_model) |>
+  kbl() |>
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+A general fitted linear regression model, estimating deviations from noise, may be represented as:
+
+$$  
+\Large 
+ \hat{y} = \beta_0 + \beta_1 x
+$$
+
+where $\hat{y}$ is the response variable, $\beta_0$ is the y-intercept of the linear model, $\beta_1$ is the slope of the linear model, and x is the explanatory variable.
+
+From the results from the coefficient table, the estimated regression model between average GDP per capita and average CO2 emissions per capita can be represented as:
+
+$$  
+\Large 
+ \hat{y} = -0.2863 +  0.0003x
+$$ The estimated slope coefficient for average GDP is 0.0003, indicating that, on average, a one-unit increase in average GDP is associated with a y-unit increase/decrease in average CO2 emissions.
+
+The p-value for the average GDP coefficient is less than 0.05, indicating that average GDP is a statistically significant predictor of average CO2 emissions.
+
+We can assess how “good” a regression model is by looking for how much of the variability in the response values were accounted for in the regression model, specifically looking at the regression model's fitted values. Meanwhile, the variance in the residual values represent the amount of variability not accounted for in the model.
+
+```{r}
+variance_table <- data.frame(
+  Component = c("Variance in the response values", "Variance in the fitted values", "Variance in the residuals"),
+  Variance = c(var(regression_model$model$avg_CO2_emissions), 
+               var(regression_model$fitted.values),
+               var(regression_model$residuals)
+               )
+  )
+  
+variance_table |>
+  kbl() |>
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+The variance of the fitted values accounts for nearly 70.1% of variance response values while the residual variance accounts for 29.8%. This signifies that the linear regression model is a good fit for our observations, explaining that 70.1% of variability in average CO2 emissions is explained by the model (matching with the outputted R-squared value of 0.70).
+
+# Part 3: Simulation
+
+```{r, Section_3-1}
+
+average_data <- merged_data |>
+  group_by(country) |>
+  summarise(avg_GDP = mean(GDP, na.rm = TRUE),
+            avg_CO2_emissions = mean(CO2, 
+                                     na.rm = TRUE)
+            )|>
+  filter(across(everything(), ~is.na(.) == 0))
+
+noise<-function(x, sd){
+  x + rnorm(length(x),mean=0,sd)
+}
+
+CO2_predict<-predict(regression_model)
+CO2_sigma<-sigma(regression_model)
+model_w_noise<-noise(CO2_predict, CO2_sigma)
+
+simulation<- tibble(sim_CO2 = model_w_noise)
+
+pred_obs_df<-average_data|>
+  mutate(pred_CO2=simulation$sim_CO2) 
+
+side_by_side_2 = pred_obs_df |>
+  ggplot(aes(x = avg_GDP, 
+             y = pred_CO2, 
+             label = country)
+         ) +
+  geom_point(color = "red") +
+  geom_smooth(method = "lm", 
+              se = FALSE, 
+              color = "blue", 
+              linetype = "dashed") +
+  geom_text(nudge_x = 0.1, 
+            nudge_y = 0.1, 
+            check_overlap = TRUE) +
+  labs(title = "Simulation",
+       x = "Average GDP per capita (US $)",
+       y = "Predicted CO2 Emissions [tons per person]") +
+  theme_minimal()
+
+# Arrange plots side by side
+side_by_side_1 + side_by_side_2 + plot_layout(ncol = 2)
+
+# Display the summary of the regression model
+summary(regression_model)
+broom::tidy(regression_model)
+
+```
+
+*Discuss how the simulated data are similar and / or different to the observed data.*
+
+Based on the plots shown above, the simulated data predicts fewer outliers at larger (above approximately \$15000) average GDP values. **Additionally, the two models differed in slope (** More specifically, the simulation predicted a larger slope compared to the data. Conversely, the two plots are similar in that both predict a positive-linear trend between average per capita CO2 emissions and GDP.
+
+# 1000 Simulations
+
+```{r, Section_3-2}
+sims <- map_dfc(0:1000, #if you want to practice run, don't use 1000.................. :(
+                ~(noise(x = CO2_predict , sd = CO2_sigma))) #runs through noise() 1000 times, rnorm() creates different values
+
+colnames(sims) <- colnames(sims) |> #changes column names to something more readable
+  str_replace(pattern = "\\.\\.\\.",
+                  replace = "_")
+
+thousand_sims <- average_data |>  #combines the 1000 simulations with the original avg CO2 values, its technically 1000 sims + 1 obs
+  filter(!is.na(avg_GDP), 
+         !is.na(avg_CO2_emissions)) |> 
+  select(avg_CO2_emissions) |> 
+  bind_cols(sims)
+
+```
+
+```{r}
+# Plot of R^2:
+thousand_r2s <- thousand_sims |> # runs the lm() method 1000 times and extracts the R2 values into new... matrix???
+  map(~ lm(avg_CO2_emissions ~ .x, data = thousand_sims)) |> 
+  map(glance)|>
+  map_dbl(~ .x$r.squared)
+
+thousand_r2s <- thousand_r2s[names(thousand_r2s) != "avg_CO2_emissions"] #get rid of the "avg_CO2_emissions" column
+
+tibble(sims = thousand_r2s) |> #plot R2 value histogram
+  ggplot(aes(x = sims)) + 
+  geom_histogram(binwidth = 0.025, fill = "salmon", alpha = 0.8) +
+  labs(x = expression("Simulated"~ R^2),
+       y = "",
+       subtitle = "Number of Simulated Models, Total (n = 1000)",
+       title = "Distribution of Simulated Linear Model\nR-Squared Values of Country GDP per capita to CO2 emissions per capita") +
+  theme_bw() +
+  scale_x_continuous(breaks = seq(0.35, 0.75, 0.025))
+```
+
+As shown in the plot above, the simulation results are centered around an R\^2 value of between 0.575 and 0.600. This indicates that the model fits the data fairly well, because the independent variable (GDP per capita) can explain 57.5% to 60% of the variability observed in the dependent variable (CO2 emissions per capita).
+
+# Flex Points:
+
+```{r, Animated_Gif}
+# Plot of R^2 
+thousand_r2s <- thousand_sims |> # runs the lm() method 1000 times and extracts the R2 values into new... matrix???
+  map(~ lm(avg_CO2_emissions ~ .x, data = thousand_sims)) |> 
+  map(glance)|>
+  map_dbl(~ .x$r.squared)
+
+thousand_r2s <- thousand_r2s[names(thousand_r2s) != "avg_CO2_emissions"] #get rid of the "avg_CO2_emissions" column
+
+tibble(sims = thousand_r2s) |> #plot R2 value histogram
+  ggplot(aes(x = sims)) + 
+  geom_histogram(binwidth = 0.025, fill = "salmon", alpha = 0.8) +
+  labs(x = expression("Simulated"~ R^2),
+       y = "",
+       subtitle = "Number of Simulated Models, Total (n = 1000)",
+       title = "Distribution of Simulated Linear Model\nR-Squared Values of Country GDP per capita to CO2 emissions per capita") +
+  theme_bw() +
+  scale_x_continuous(breaks = seq(0.35, 0.75, 0.025))
+
+gif <- ggplot(filtered_data_decade, aes(GDPavg, CO2avg)) +
+  geom_point(color = "steelblue", alpha = 0.7, show.legend = FALSE) +
+  # Here comes the gganimate specific bits
+  labs(title = 'Year: {frame_time}',
+       x = 'GDP per Capita (dollars)',
+       y = 'CO2 Emissions per Capita (tons)') +
+  transition_time(decade) +
+  ease_aes('linear') # Tells the animation to progress at a linear rate
+
+animate(
+  plot = gif,
+  renderer = gifski_renderer("CO2_vs_GDP.gif")
+)
+```
+
+![](CO2_vs_GDP.gif)
+
