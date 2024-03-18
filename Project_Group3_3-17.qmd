@@ -40,6 +40,7 @@ library(gganimate)
 library(tidyverse)
 library(patchwork)
 library(broom)
+library(kableExtra)
 
 GDP <- read_csv("gdp_pcap.csv")
 Emissions <- read_csv("co2_pcap_cons.csv")
@@ -150,19 +151,29 @@ Both evaluations visualizations exhibit a positive relationship between average 
 regression_model <- lm(avg_CO2_emissions ~ avg_GDP, data = average_data)
 
 # Display the summary of the regression model
-summary(regression_model)
-broom::tidy(regression_model)
+#summary(regression_model)
+broom::tidy(regression_model) |>
+  kbl() |>
+  kable_styling(bootstrap_options = c("striped", "hover"))
 ```
 
-The estimated regression model between average GDP per capita and average CO2 emissions per capita is:
+A general fitted linear regression model, estimating deviations from noise, may be represented as:
 
-<center>y\^ = -2.863e-01 + (3.342e-04)\*x</center>
+$$  
+\Large 
+ \hat{y} = \beta_0 + \beta_1 x
+$$
 
-\n
+where $\hat{y}$ is the response variable, $\beta_0$ is the y-intercept of the linear model, $\beta_1$ is the slope of the linear model, and x is the explanatory variable.
 
-The estimated slope coefficient for average GDP (code variable **`avg_GDP)`** is 3.342e-04, indicating that, on average, a one-unit increase in average GDP is associated with a Y-unit increase in average CO2 emissions. For example, a 1000 dollar increase in average GDP (variable name "avg_GDP"), on average, we expect that there would be 334.2 tons of CO2/capita.
+From the results from the coefficient table, the estimated regression model between average GDP per capita and average CO2 emissions per capita can be represented as:
 
-The p-value for the average GDP (code name: **`avg_GDP)`** coefficient is less than 0.05, indicating that average GDP is a statistically significant predictor of average CO2 emissions.
+$$  
+\Large 
+ \hat{y} = -0.2863 +  0.0003x
+$$ The estimated slope coefficient for average GDP is 0.0003, indicating that, on average, a one-unit increase in average GDP is associated with a y-unit increase/decrease in average CO2 emissions.
+
+The p-value for the average GDP coefficient is less than 0.05, indicating that average GDP is a statistically significant predictor of average CO2 emissions.
 
 We can assess how “good” a regression model is by looking for how much of the variability in the response values were accounted for in the regression model, specifically looking at the regression model's fitted values. Meanwhile, the variance in the residual values represent the amount of variability not accounted for in the model.
 
@@ -175,7 +186,9 @@ variance_table <- data.frame(
                )
   )
   
-variance_table
+variance_table |>
+  kbl() |>
+  kable_styling(bootstrap_options = c("striped", "hover"))
 ```
 
 The variance of the fitted values accounts for nearly 70.1% of variance response values while the residual variance accounts for 29.8%. This signifies that the linear regression model is a good fit for our observations, explaining that 70.1% of variability in average CO2 emissions is explained by the model (matching with the outputted R-squared value of 0.70).
